@@ -9,6 +9,7 @@
 (defun get-devices ()
   (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
       (drakma:http-request +meethue-url+ :want-stream t)
+    (declare (ignore body status-code headers uri must-close reason-phrase))
     (cl-json:decode-json stream)))
 
 
