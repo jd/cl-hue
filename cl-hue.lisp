@@ -13,6 +13,22 @@
     (cl-json:decode-json stream)))
 
 
+(defclass bridge ()
+  ((address :initarg :address :accessor bridge-address)
+   (username :initarg :username :accessor bridge-username)))
+
+(defun make-bridge (&optional ip-address username)
+  (let ((ip-address (or ip-address
+                        ;; Grab the first device in the list
+                        (cdr (assoc :internalipaddress (car (get-devices)))))))
+    (if ip-address
+        (make-instance 'bridge
+                       :address ip-address
+                       :username (or username
+                                     (register ip-address)))
+        (error "Unable to find a device"))))
+
+
 (defun register (bridge-address &optional (device-type "cl-hue"))
   "Register an application against the bridge.
 
