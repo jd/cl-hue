@@ -4,7 +4,7 @@
 
 (in-package :cl-hue)
 
-(defconstant +meethue-url+ "http://www.meethue.com/api/nupnp")
+(defconstant +meethue-url+ "https://www.meethue.com/api/nupnp")
 
 (defun get-devices ()
   (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
