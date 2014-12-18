@@ -25,15 +25,26 @@
         (make-instance 'bridge
                        :address ip-address
                        :username (or username
-                                     (register ip-address)))
+                                     (create-user ip-address)))
         (error "Unable to find a device"))))
 
 
-(defun register (bridge-address &optional (device-type "cl-hue"))
+(defun extract-api-result (status)
+  (let ((error-status (gethash "error" (car status))))
+    (if error-status
+        (error (gethash "description" error-status))
+        (gethash "success" (car status)))))
+
+
+(defun create-user (bridge-address &optional (device-type "cl-hue") username)
   "Register an application against the bridge.
 
 Return a username value (a kind of token) that must be used to access the
 bridege."
+  (let* ((payload `("devicetype" ,device-type))
+         (payload (if username
+                      (append payload `("username" ,username))
+                      payload)))
   (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
       (drakma:http-request (format nil "http://~a/api" bridge-address)
                            :want-stream t
@@ -41,16 +52,11 @@ bridege."
                            :content-type "application/json"
                            :content (with-output-to-string (s)
                                         (yason:encode
-                                         (alexandria:plist-hash-table
-                                          `("devicetype" ,device-type)
+                                         (alexandria:plist-hash-table payload
                                           :test #'equal)
                                          s)))
     (declare (ignore body status-code headers uri must-close reason-phrase))
-    (let* ((status (car (yason:parse stream)))
-           (error-status (gethash "error" status)))
-      (if error-status
-          (error (gethash "description" error-status))
-          (nth-value 0 (gethash "username" (gethash "success" status)))))))
+    (nth-value 0 (gethash "username" (extract-api-result (yason:parse stream)))))))
 
 
 (defclass light ()
