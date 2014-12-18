@@ -1,6 +1,13 @@
 (defpackage cl-hue
   (:use cl)
-  (:export get-devices))
+  (:export get-devices
+           bridge
+           make-bridge
+           create-user
+           light
+           get-lights
+           get-light
+           set-light-name))
 
 (in-package :cl-hue)
 
@@ -144,3 +151,8 @@ bridege."
     (declare (ignore body status-code headers uri must-close reason-phrase))
     (nth-value 0(gethash (format nil "/lights/~a/name" light)
                          (extract-api-result (yason:parse stream))))))
+
+
+(defmethod set-light-name ((light light) name)
+  (setf (light-name light)
+         (set-light-name (light-number light) name)))
