@@ -115,3 +115,26 @@ bridege."
                            :want-stream t)
       (declare (ignore body status-code headers uri must-close reason-phrase))
       (light-from-status number (yason:parse stream))))
+
+
+(defgeneric set-light-name (light name)
+  (:documentation "Set LIGHT name to NAME."))
+
+(defmethod set-light-name ((light integer) name)
+  (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
+      (drakma:http-request (format nil "http://~a/api/~a/lights/~a"
+                                   (bridge-address bridge)
+                                   (bridge-username bridge)
+                                   light)
+                           :want-stream t
+                           :method :PUT
+                           :content-type "application/json"
+                           :content (with-output-to-string (s)
+                                      (yason:encode
+                                       (alexandria:plist-hash-table
+                                        `("name" ,name)
+                                        :test #'equal)
+                                       s)))
+    (declare (ignore body status-code headers uri must-close reason-phrase))
+    (nth-value 0(gethash (format nil "/lights/~a/name" light)
+                         (extract-api-result (yason:parse stream))))))
