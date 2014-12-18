@@ -10,7 +10,7 @@
   (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
       (drakma:http-request +meethue-url+ :want-stream t)
     (declare (ignore body status-code headers uri must-close reason-phrase))
-    (cl-json:decode-json stream)))
+    (yason:parse stream)))
 
 
 (defclass bridge ()
@@ -39,11 +39,15 @@ bridege."
                            :want-stream t
                            :method :POST
                            :content-type "application/json"
-                           :content (cl-json:encode-json-to-string
-                                     `((:devicetype . ,device-type))))
+                           :content (with-output-to-string (s)
+                                        (yason:encode
+                                         (alexandria:plist-hash-table
+                                          `("devicetype" ,device-type)
+                                          :test #'equal)
+                                         s)))
     (declare (ignore body status-code headers uri must-close reason-phrase))
-    (let* ((status (car (cl-json:decode-json stream)))
-           (error-status (cdr (assoc :error status))))
+    (let* ((status (car (yason:parse stream)))
+           (error-status (gethash "error" status)))
       (if error-status
-          (error (cdr (assoc :description error-status)))
-          (cdr (assoc :username (cdr (assoc :success status))))))))
+          (error (gethash "description" error-status))
+          (nth-value 0 (gethash "username" (gethash "success" status)))))))
