@@ -7,6 +7,7 @@
            light
            get-lights
            get-light
+           set-light-name-by-number
            set-light-name))
 
 (in-package :cl-hue)
@@ -67,7 +68,8 @@ bridege."
 
 
 (defclass light ()
-  ((number :initarg :number :accessor light-number)
+  ((bridge :initarg :bridge :accessor light-bridge)
+   (number :initarg :number :accessor light-number)
    (type :initarg :type :accessor light-type)
    (name :initarg :name :accessor light-name)
    (modelid :initarg :modelid :accessor light-modelid)
@@ -85,9 +87,10 @@ bridege."
    (colormode :initarg :colormode :accessor light-colormode)
    (reachable :initarg :reachable :accessor light-reachable-p)))
 
-(defun light-from-status (number status)
+(defun light-from-status (bridge number status)
   (let ((state (gethash "state" status)))
     (make-instance 'light
+                   :bridge bridge
                    :number number
                    :type (gethash "type" status)
                    :name (gethash "name" status)
@@ -116,7 +119,7 @@ bridege."
     (declare (ignore body status-code headers uri must-close reason-phrase))
     (loop for key being the hash-keys of (yason:parse stream)
             using (hash-value value)
-          collect (light-from-status key value))))
+          collect (light-from-status bridge key value))))
 
 (defun get-light (bridge number)
   "Get a specific light."
@@ -127,18 +130,15 @@ bridege."
                                    number)
                            :want-stream t)
       (declare (ignore body status-code headers uri must-close reason-phrase))
-      (light-from-status number (yason:parse stream))))
+      (light-from-status bridge number (yason:parse stream))))
 
 
-(defgeneric set-light-name (light name)
-  (:documentation "Set LIGHT name to NAME."))
-
-(defmethod set-light-name ((light integer) name)
+(defun set-light-name-by-number (bridge light-number name)
   (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
       (drakma:http-request (format nil "http://~a/api/~a/lights/~a"
                                    (bridge-address bridge)
                                    (bridge-username bridge)
-                                   light)
+                                   light-number)
                            :want-stream t
                            :method :PUT
                            :content-type "application/json"
@@ -149,10 +149,10 @@ bridege."
                                         :test #'equal)
                                        s)))
     (declare (ignore body status-code headers uri must-close reason-phrase))
-    (nth-value 0 (gethash (format nil "/lights/~a/name" light)
-                         (extract-api-result (yason:parse stream))))))
+    (nth-value 0 (gethash (format nil "/lights/~a/name" light-number)
+                          (extract-api-result (yason:parse stream))))))
 
 
-(defmethod set-light-name ((light light) name)
+(defun set-light-name (light name)
   (setf (light-name light)
-         (set-light-name (light-number light) name)))
+         (set-light-name-by-number (light-bridge light) (light-number light) name)))
