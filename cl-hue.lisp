@@ -38,10 +38,13 @@
 
 
 (defun extract-api-result (status)
-  (let ((error-status (gethash "error" (car status))))
+  (let ((error-status (gethash "error" status)))
     (if error-status
+        ;; TODO(jd) This is a bit violent, we should allow to restart or
+        ;; something because when we extract multiple result we bail out on the
+        ;; first error!
         (error (gethash "description" error-status))
-        (gethash "success" (car status)))))
+        (gethash "success" status))))
 
 
 (defun create-user (bridge-address &optional (device-type "cl-hue") username)
@@ -64,7 +67,7 @@ bridege."
                                           :test #'equal)
                                          s)))
     (declare (ignore body status-code headers uri must-close reason-phrase))
-    (nth-value 0 (gethash "username" (extract-api-result (yason:parse stream)))))))
+    (nth-value 0 (gethash "username" (extract-api-result (car (yason:parse stream))))))))
 
 
 (defclass light ()
@@ -150,9 +153,56 @@ bridege."
                                        s)))
     (declare (ignore body status-code headers uri must-close reason-phrase))
     (nth-value 0 (gethash (format nil "/lights/~a/name" light-number)
-                          (extract-api-result (yason:parse stream))))))
+                          (extract-api-result (car (yason:parse stream)))))))
 
 
 (defun set-light-name (light name)
   (setf (light-name light)
          (set-light-name-by-number (light-bridge light) (light-number light) name)))
+
+
+(defun set-light-state-by-number (bridge light-number &key
+                                                        (on nil on-supplied-p)
+                                                        (brightness nil brightness-supplied-p)
+                                                        (hue nil hue-supplied-p)
+                                                        (saturation nil saturation-supplied-p)
+                                                        (xy nil xy-supplied-p)
+                                                        (ct nil ct-supplied-p)
+                                                        (alert nil alert-supplied-p)
+                                                        (effect nil effect-supplied-p)
+                                                        (transitiontime nil transitiontime-supplied-p))
+  (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
+      (drakma:http-request (format nil "http://~a/api/~a/lights/~a/state"
+                                   (bridge-address bridge)
+                                   (bridge-username bridge)
+                                   light-number)
+                           :want-stream t
+                           :method :PUT
+                           :content-type "application/json"
+                           :content (with-output-to-string (s)
+                                      (yason:encode
+                                       (alexandria:plist-hash-table
+                                        `(,@(when on-supplied-p
+                                              `("on" ,(if on 'yason:true 'yason:false)))
+                                          ,@(when brightness-supplied-p
+                                              `("bri" ,brightness))
+                                          ,@(when hue-supplied-p
+                                              `("hue" ,hue))
+                                          ,@(when saturation-supplied-p
+                                              `("sat" ,saturation))
+                                          ,@(when xy-supplied-p
+                                              `("xy" ,xy))
+                                          ,@(when ct-supplied-p
+                                              `("ct" ,ct))
+                                          ,@(when alert-supplied-p
+                                              `("alert" ,alert))
+                                          ,@(when effect-supplied-p
+                                              `("effect" ,effect))
+                                          ,@(when transitiontime-supplied-p
+                                              `("transitiontime" ,transitiontime)))
+                                        :test #'equal)
+                                       s)))
+    (declare (ignore body status-code headers uri must-close reason-phrase))
+    (mapcan #'identity
+            (loop for result in (yason:parse stream)
+                  collect (alexandria:hash-table-plist (extract-api-result result))))))
