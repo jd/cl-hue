@@ -149,7 +149,7 @@ bridege."
                                         :test #'equal)
                                        s)))
     (declare (ignore body status-code headers uri must-close reason-phrase))
-    (nth-value 0(gethash (format nil "/lights/~a/name" light)
+    (nth-value 0 (gethash (format nil "/lights/~a/name" light)
                          (extract-api-result (yason:parse stream))))))
 
 
