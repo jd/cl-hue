@@ -8,7 +8,8 @@
            get-lights
            get-light
            set-light-name-by-number
-           set-light-name))
+           set-light-name
+           set-light-state-by-number))
 
 (in-package :cl-hue)
 
